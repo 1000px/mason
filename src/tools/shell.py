@@ -20,3 +20,8 @@ def execute_shell(command: str) -> str:
 #     except Exception as e:
 #         return f"Error executing command: {str(e)}"
 
+# shell_tool = Tool(
+#     name="execute_shell",
+#     func=execute_shell,
+#     description="Execute a shell command. Use this to interact with the file system, run scripts, or manage processes."
+# )

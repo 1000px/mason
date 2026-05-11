@@ -27,3 +27,9 @@ def execute_python(code: str) -> str:
 #         sys.stdout = old_stdout
 #         sys.stderr = old_stderr
 #         return f"Error executing python code: {str(e)}"
+
+# python_tool = Tool(
+#     name="execute_python",
+#     func=execute_python,
+#     description="Execute Python code. Use this for calculations, data processing, or complex logic."
+# )

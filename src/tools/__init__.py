@@ -38,3 +38,5 @@ TOOLS_SCHEMA = [
         }
     }
 ]
+
+ALL_TOOLS = [execute_shell, execute_python]

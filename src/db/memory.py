@@ -21,12 +21,18 @@ def get_checkpointer():
     """短期记忆（Checkpointer）"""
     conn = get_mysql_connection()
     checkpointer = PyMySQLSaver(conn)
-    checkpointer.setup()
+    try:
+        checkpointer.setup()
+    except Exception:
+        pass
     return checkpointer
 
 def get_memory_store():
     """长期记忆（Store）"""
     conn = get_mysql_connection()
     store = PyMySQLStore(conn)
-    store.setup()
+    try:
+        store.setup()
+    except Exception:
+        pass
     return store
