@@ -17,5 +17,12 @@ class Settings:
     # 🆕 Sandbox Config
     SANDBOX_TYPE: str = os.getenv("SANDBOX_TYPE", "local")  # "docker" or "local"
     SANDBOX_TIMEOUT: int = int(os.getenv("SANDBOX_TIMEOUT", "10"))  # seconds
+    # MySQL Config
+    HOST: str = os.getenv("HOST", "localhost")
+    PORT: int = int(os.getenv("PORT", "3306"))
+    USER: str = os.getenv("USER", "root")
+    PASSWORD: str = os.getenv("PASSWORD", "")
+    DATABASE: str = os.getenv("DATABASE", "mason")
+    CHARSET: str = os.getenv("CHARSET", "utf8mb4")
 
 settings = Settings()
