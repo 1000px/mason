@@ -85,6 +85,20 @@ async def get_chat_page(request: Request):
         </html>
         """)
 
+# src/web/app.py
+# ... 在原有代码的基础上，添加以下路由 ...
+
+@app.get("/plugins", response_class=HTMLResponse)
+async def plugins_page(request: Request):
+    """插件市场页面"""
+    html_file = os.path.join(TEMPLATES_DIR, "plugins.html")
+    try:
+        with open(html_file, "r", encoding="utf-8") as f:
+            html_content = f.read()
+        return HTMLResponse(content=html_content)
+    except FileNotFoundError:
+        return HTMLResponse(content="<h1>Plugin Market Not Found</h1>")
+
 def run_graph_sync(graph, user_input, thread_id, websocket, loop):
     """Synchronous graph execution in a background thread"""
     try:
@@ -158,6 +172,117 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str):
             "type": "error",
             "content": str(e)
         })
+
+# src/web/app.py
+# ... 原有代码保持不变 ...
+import subprocess
+import sys
+import yaml
+from pathlib import Path
+import os
+
+# 项目根目录
+ROOT_DIR = Path(__file__).resolve().parent.parent.parent
+
+# ---------- 🆕 插件市场 API ----------
+@app.get("/api/plugins")
+async def list_plugins():
+    """列出所有已安装的插件及其权限"""
+    plugins = []
+    skills_dir = ROOT_DIR / "src" / "skills" / "builtin"
+    
+    for skill_dir in skills_dir.iterdir():
+        if skill_dir.is_dir() and not skill_dir.name.startswith("__"):
+            manifest_path = skill_dir / "skill.yaml"
+            if manifest_path.exists():
+                with open(manifest_path, 'r', encoding='utf-8') as f:
+                    manifest = yaml.safe_load(f)
+                    plugins.append({
+                        "name": manifest.get("name"),
+                        "display_name": manifest.get("display_name"),
+                        "description": manifest.get("description"),
+                        "version": manifest.get("version"),
+                        "permissions": manifest.get("permissions", {}),
+                        "status": "installed"
+                    })
+    return {"plugins": plugins}
+
+
+@app.post("/api/plugins/install")
+async def install_plugin(request: dict):
+    """安装插件"""
+    repo_url = request.get("repo_url")
+    if not repo_url:
+        return {"success": False, "error": "Repo URL is required"}
+    
+    print(f"🌐 Web UI: Installing plugin from: {repo_url}")
+    
+    script_path = ROOT_DIR / "install_skill.py"
+    python_exe = sys.executable
+    
+    cmd = f'"{python_exe}" "{script_path}" "{repo_url}"'
+    print(f"🔧 Executing command: {cmd}")
+    
+    try:
+        # 🔧 修复：添加 encoding='utf-8'
+        result = subprocess.run(
+            cmd,
+            shell=True,
+            capture_output=True,
+            text=True,
+            encoding='utf-8',  # 🆕 强制使用 UTF-8 解码
+            cwd=str(ROOT_DIR)
+        )
+        
+        print(f"📤 Script stdout: {result.stdout}")
+        if result.stderr:
+            print(f"📤 Script stderr: {result.stderr}")
+        
+        if result.returncode == 0:
+            return {"success": True, "output": result.stdout}
+        else:
+            return {"success": False, "error": result.stderr or result.stdout}
+    except Exception as e:
+        print(f"❌ Exception during installation: {e}")
+        return {"success": False, "error": str(e)}
+
+@app.post("/api/plugins/uninstall")
+async def uninstall_plugin(request: dict):
+    """卸载插件"""
+    skill_name = request.get("skill_name")
+    if not skill_name:
+        return {"success": False, "error": "Skill name is required"}
+    
+    print(f"🌐 Web UI: Uninstalling plugin: {skill_name}")
+    
+    script_path = ROOT_DIR / "uninstall_skill.py"
+    python_exe = sys.executable
+    
+    cmd = f'"{python_exe}" "{script_path}" "{skill_name}"'
+    print(f"🔧 Executing command: {cmd}")
+    
+    try:
+        # 🔧 修复：添加 encoding='utf-8'
+        result = subprocess.run(
+            cmd,
+            shell=True,
+            capture_output=True,
+            text=True,
+            encoding='utf-8',  # 🆕 强制使用 UTF-8 解码
+            cwd=str(ROOT_DIR)
+        )
+        
+        print(f"📤 Script stdout: {result.stdout}")
+        if result.stderr:
+            print(f"📤 Script stderr: {result.stderr}")
+        
+        if result.returncode == 0:
+            return {"success": True, "output": result.stdout}
+        else:
+            return {"success": False, "error": result.stderr or result.stdout}
+    except Exception as e:
+        print(f"❌ Exception during uninstallation: {e}")
+        return {"success": False, "error": str(e)}
 
 if __name__ == "__main__":
     import uvicorn

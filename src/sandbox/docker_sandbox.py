@@ -2,6 +2,7 @@
 import docker
 import os
 import tempfile
+from typing import Dict, Any
 from .base import BaseSandbox
 
 class DockerSandbox(BaseSandbox):
@@ -9,114 +10,112 @@ class DockerSandbox(BaseSandbox):
         try:
             self.client = docker.from_env()
             self.image = "mason-skill-sandbox"
-            
-            # 确保镜像存在
-            images = self.client.images.list(name=self.image)
-            if not images:
-                raise RuntimeError(f"Image {self.image} not found. Please build it first.")
-                
-            # 🔒 定义宿主机的工作区（绝对路径）
             self.host_workspace = os.path.abspath("./workspace")
             os.makedirs(self.host_workspace, exist_ok=True)
-            
         except Exception as e:
             raise RuntimeError(f"Docker Sandbox init failed: {e}")
-    
-    def _clean_output(self, output: str) -> str:
-        """清理 Docker 容器的输出"""
-        # 移除 ANSI 颜色代码
-        import re
-        ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
-        output = ansi_escape.sub('', output)
-        # 只保留第一行（防止多余输出）
-        return output.strip().split('\n')[0]
 
-    def _run_container(self, command: str, allow_network: bool = False) -> str:
-        """
-        🔒 核心执行方法：在严格受限的容器中运行命令
-        allow_network: 是否允许该 Skill 联网，默认 False
-        """
+    def _run_container(self, command: str, permissions: Dict[str, Any]) -> str:
+        """根据权限动态配置容器"""
         try:
-            # 🔒 动态决定是否断网
-            network_setting = not allow_network  # 如果 allow_network=True，则 network_disabled=False
+            # 从权限字典获取配置
+            network_allowed = permissions.get("network", False)
+            fs_allowed = permissions.get("filesystem", False)
+            max_cpu = int(permissions.get("max_cpu", 0.5) * 100000)
+            max_memory = f"{permissions.get('max_memory', 128)}m"
 
-            # 🔒 关键安全配置
+            # 动态挂载卷
+            volumes = {}
+            if fs_allowed:
+                volumes[self.host_workspace] = {'bind': '/workspace', 'mode': 'rw'}
+            else:
+                # 如果不允许文件系统，挂载为空
+                volumes = {}
+
             container = self.client.containers.run(
                 image=self.image,
                 command=["sh", "-c", command],
-                # 🔒 挂载宿主机 workspace 到容器 /workspace (只读挂载，除非特别需要写)
-                volumes={
-                    self.host_workspace: {
-                        'bind': '/workspace',
-                        'mode': 'rw'  # 如果需要写权限，设为 rw；否则 ro
-                    }
-                },
-                working_dir="/workspace",  # 锁定工作目录
-                remove=True,  # 自动删除容器
-                detach=False,
-                stdout=True,
-                stderr=True,
-                # 🔒 安全隔离配置
-                network_disabled=True,  # 断网, 禁止访问外部网络
-                privileged=False,        # 禁止特权模式
-                user="app",             # 非 root 用户
-                mem_limit="128m",       # 内存限制
-                cpu_period=100000,
-                cpu_quota=50000,        # 限制 CPU 50%
-                security_opt=["no-new-privileges"],  # 禁止提权
-                cap_drop=["ALL"],        # 丢弃所有 Linux 权限
-                read_only=True,         # 🔒 根文件系统只读
-                tmpfs={"/tmp": "size=64m"},  # 仅允许 /tmp 可写
-            )
-            return container.decode("utf-8", errors="ignore")
-            # 在返回前调用
-            # output = container.decode("utf-8", errors="ignore")
-            # return self._clean_output(output)
-        except Exception as e:
-            return f"Docker Sandbox Error: {e}"
-
-    def execute(self, command: str) -> str:
-        """
-        执行 Shell 命令
-        """
-        # 🔒 防御性编程：禁止危险命令
-        dangerous = ["rm -rf", "mkfs", "dd", "chmod 777"]
-        if any(cmd in command for cmd in dangerous):
-            return "🚨 Command blocked by sandbox for security reasons."
-        return self._run_container(command)
-
-    def execute_code(self, code: str, language: str = "python", allow_network: bool = False) -> str:
-        """
-        执行代码（通过写入临时文件再执行）
-        """
-        if language != "python":
-            return "Only python supported in docker sandbox."
-        
-        # 在容器内创建临时文件
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
-            f.write(code)
-            host_script_path = f.name
-        
-        try:
-            # 将宿主机临时文件挂载到容器内执行
-            container = self.client.containers.run(
-                image=self.image,
-                command=["python", "/tmp/script.py"],
-                volumes={
-                    self.host_workspace: {'bind': '/workspace', 'mode': 'rw'},
-                    host_script_path: {'bind': '/tmp/script.py', 'mode': 'ro'}
-                },
-                working_dir="/workspace",
+                volumes=volumes,
+                working_dir="/workspace" if fs_allowed else "/tmp",
                 remove=True,
                 detach=False,
                 stdout=True,
                 stderr=True,
-                network_disabled=not allow_network,
+                # 动态权限
+                network_disabled=not network_allowed,
+                privileged=False,
                 user="app",
-                mem_limit="128m",
-                read_only=True,
-                tmpfs={"/tmp": "size=64m"},
+                mem_limit=max_memory,
+                cpu_period=100000,
+                cpu_quota=max_cpu,
+                security_opt=["no-new-privileges"],
+                cap_drop=["ALL"],
+                read_only=not fs_allowed,
+                tmpfs={"/tmp": "size=64m"} if not fs_allowed else None,
             )
             return container.decode("utf-8", errors="ignore")
+        except Exception as e:
+            return f"Docker Sandbox Error: {e}"
+
+    def execute(self, command: str, permissions: Dict[str, Any] = None) -> str:
+        """执行 Shell 命令（带权限）"""
+        if permissions is None:
+            permissions = {"network": False, "filesystem": False}
+        
+        dangerous = ["rm -rf", "mkfs", "dd", "chmod 777"]
+        if any(cmd in command for cmd in dangerous):
+            return "🚨 Command blocked by sandbox."
+        return self._run_container(command, permissions)
+
+    def execute_code(self, code: str, language: str = "python", permissions: Dict[str, Any] = None) -> str:
+        """执行代码（带权限）"""
+        if permissions is None:
+            permissions = {"network": False, "filesystem": False}
+
+        # 👉 1. 打印进来的权限，确认网络确实是开放的
+        # print(f"🐛 [Sandbox Debug] Received permissions: {permissions}") 
+
+        if language != "python":
+            return "Only python supported in docker sandbox."
+        
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False, encoding='utf-8') as f:
+            f.write(code)
+            host_script_path = f.name
+        
+        try:
+            # 动态挂载卷
+            volumes = {
+                host_script_path: {'bind': '/tmp/script.py', 'mode': 'ro'}
+            }
+            if permissions.get("filesystem", False):
+                volumes[self.host_workspace] = {'bind': '/workspace', 'mode': 'rw'}
+            
+            container = self.client.containers.run(
+                image=self.image,
+                command=["python", "/tmp/script.py"],
+                volumes=volumes,
+                working_dir="/workspace" if permissions.get("filesystem", False) else "/tmp",
+                remove=True,
+                detach=False,
+                stdout=True,
+                stderr=True,
+                network_disabled=not permissions.get("network", False),
+                user="app",
+                mem_limit=f"{permissions.get('max_memory', 128)}m",
+                cpu_period=100000,
+                cpu_quota=int(permissions.get("max_cpu", 0.5) * 100000),
+                read_only=not permissions.get("filesystem", False),
+                tmpfs={"/tmp": "size=64m"},
+            )
+            result = container.decode("utf-8", errors="ignore")
+            # 👉 2. 打印容器原本的输出
+            # print(f"🐛 [Sandbox Debug] Container raw output: '{result}'")
+
+            return result
+        except Exception as e:
+            # 👉 3. 如果这里出错，把具体的错误抛出来
+            error_msg = f"Docker Execution Error: {e}" 
+            # print(f"🐛 [Sandbox Debug] {error_msg}")
+            return error_msg
         finally:
             os.unlink(host_script_path)

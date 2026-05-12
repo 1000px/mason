@@ -1,13 +1,13 @@
 # src/skills/skill_template.yaml
-name: "example_skill"           # Skill 的唯一 ID
-display_name: "Example Skill"   # 显示名称
+name: "example_skill"
+display_name: "Example Skill"
 version: "1.0.0"
 author: "Your Name"
 description: "A brief description of what this skill does."
-entry_point: "main.py"          # Skill 的主执行文件
-requirements:                   # Python 依赖（将在 Docker 镜像中安装）
-  - requests
-  - beautifulsoup4
+entry_point: "main.py"
+requirements: []
 permissions:
-  network: false                 # 是否允许联网（默认 false）
-  filesystem: true               # 是否允许访问 workspace
+  network: false        # 是否允许访问互联网
+  filesystem: true      # 是否允许读写文件系统（workspace）
+  max_cpu: 0.5          # 最大 CPU 使用率（0.5 = 50%）
+  max_memory: 128       # 最大内存（MB）

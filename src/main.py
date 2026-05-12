@@ -61,30 +61,44 @@ def extract_memory_from_input(user_input, store):
         pass
 
 def main():
-    print("🦖 Mason Stage 6 (Pure Streaming + Memory)\n")
-    
+    print("🦖 Mason Agent's AI Studio Working ...\n")
+
     graph = build_graph()
+
     store = get_memory_store()  # ✅ 获取 store 实例
     thread_id = str(uuid.uuid4())
+    config = {"configurable": {"thread_id": thread_id}}
     
     while True:
-        q = input("You: ")
-        if q.lower() == "exit":
+        user_input = input("You: ").strip()
+        if not user_input:
+            continue
+        if user_input.lower() in ["exit", "quit"]:
+            print("👋 Goodbye!")
             break
         
         # ✅ 第一步：独立提取记忆（不在图中）
-        extract_memory_from_input(q, store)
+        extract_memory_from_input(user_input, store)
         
         print("Mason: ", end="", flush=True)
         
-        # ✅ 第二步：只执行图（没有记忆提取节点）
-        for msg, metadata in graph.stream(
-            {"messages": [HumanMessage(content=q)], "current_agent": "router"},
-            config={"configurable": {"thread_id": thread_id}},
-            stream_mode="messages"
-        ):
-            if isinstance(msg, AIMessage) and msg.content:
-                print(msg.content, end="", flush=True)
+
+        inputs = {"messages": [HumanMessage(content=user_input)]}
+        try:
+            for chunk, meta in graph.stream(inputs, config=config, stream_mode="messages"):
+                if chunk.content:
+                    print(chunk.content, end="", flush=True)
+            print()
+        except Exception as e:
+            print(f"❌ Error: {e}")
+        # # ✅ 第二步：只执行图（没有记忆提取节点）
+        # for msg, metadata in graph.stream(
+        #     {"messages": [HumanMessage(content=q)], "current_agent": "router"},
+        #     config={"configurable": {"thread_id": thread_id}},
+        #     stream_mode="messages"
+        # ):
+        #     if isinstance(msg, AIMessage) and msg.content:
+        #         print(msg.content, end="", flush=True)
         
         print()
 

@@ -7,13 +7,20 @@ class BaseSkill(ABC):
     name: str = "base_skill"
     description: str = "A base skill."
     args_schema: Type[BaseModel] = None 
+    
+    # 🆕 权限配置
+    permissions: Dict[str, Any] = {
+        "network": False,
+        "filesystem": False,
+        "max_cpu": 0.5,
+        "max_memory": 128
+    }
 
     @abstractmethod
     def execute(self, **kwargs) -> str:
         pass
     
     def get_schema(self) -> Dict[str, Any]:
-        """返回给 LangChain/LangGraph 的工具 schema"""
         properties = {}
         required = []
         
