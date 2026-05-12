@@ -1,28 +1,3 @@
-# Skill生态建设
-我们要实现的 mason install <url>不仅仅是下载文件，它必须包含 安全校验、依赖管理​ 和 自动注册。
-
-## 第一步，创建Skill规范（Manifest）
-OpenClaw 的每个 Skill 都有一个 skill.yaml。我们也采用同样的标准。
-请在 src/skills/目录下创建 skill_template.yaml（作为模板）：
-```yaml
-# src/skills/skill_template.yaml
-name: "example_skill"           # Skill 的唯一 ID
-display_name: "Example Skill"   # 显示名称
-version: "1.0.0"
-author: "Your Name"
-description: "A brief description of what this skill does."
-entry_point: "main.py"          # Skill 的主执行文件
-requirements:                   # Python 依赖（将在 Docker 镜像中安装）
-  - requests
-  - beautifulsoup4
-permissions:
-  network: false                 # 是否允许联网（默认 false）
-  filesystem: true               # 是否允许访问 workspace
-```
-## 第二步，编写安装脚本
-在项目根目录创建install_skill.py。这是核心脚本。
-
-```python
 # install_skill.py
 import os
 import sys
@@ -105,37 +80,3 @@ if __name__ == "__main__":
     
     repo_url = sys.argv[1]
     install_skill(repo_url)
-```
-# 创建专用的Dockerfile（安全加固）
-我们需要构建一个 “最小化、无特权”​ 的 Docker 镜像。不要用你之前的 python:3.11-slim直接跑 Skill，那还不够安全。
-在项目根目录创建 Dockerfile.skill：
-```docker
-# Dockerfile.skill
-FROM python:3.11-slim
-
-# 1. 创建非 root 用户（防止提权攻击）
-RUN addgroup --system app && adduser --system --group app
-
-# 2. 设置工作目录（容器内的安全区）
-WORKDIR /workspace
-
-# 3. 安装必要的依赖（仅基础工具，不装 sudo）
-RUN apt-get update && apt-get install -y \
-    curl \
-    jq \
-    && rm -rf /var/lib/apt/lists/*
-
-# 4. 切换到非 root 用户
-USER app
-
-# 5. 设置环境变量
-ENV PATH="/home/app/.local/bin:$PATH"
-
-# 6. 默认命令（挂起，等待命令注入）
-CMD ["tail", "-f", "/dev/null"]
-```
-
-构建这个镜像，只需要一次
-```bash
-docker build -f Dockerfile.skill -t mason-skill-sandbox .
-```
