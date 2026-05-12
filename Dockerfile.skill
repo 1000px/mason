@@ -7,10 +7,11 @@ RUN addgroup --system app && adduser --system --group app
 # 2. 设置工作目录（容器内的安全区）
 WORKDIR /workspace
 
-# 3. 安装必要的依赖（仅基础工具，不装 sudo）
+# 3. 安装系统依赖和 Python 依赖
 RUN apt-get update && apt-get install -y \
     curl \
     jq \
+    && pip install --no-cache-dir requests \
     && rm -rf /var/lib/apt/lists/*
 
 # 4. 切换到非 root 用户

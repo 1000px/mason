@@ -21,12 +21,25 @@ class DockerSandbox(BaseSandbox):
             
         except Exception as e:
             raise RuntimeError(f"Docker Sandbox init failed: {e}")
+    
+    def _clean_output(self, output: str) -> str:
+        """清理 Docker 容器的输出"""
+        # 移除 ANSI 颜色代码
+        import re
+        ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
+        output = ansi_escape.sub('', output)
+        # 只保留第一行（防止多余输出）
+        return output.strip().split('\n')[0]
 
-    def _run_container(self, command: str) -> str:
+    def _run_container(self, command: str, allow_network: bool = False) -> str:
         """
         🔒 核心执行方法：在严格受限的容器中运行命令
+        allow_network: 是否允许该 Skill 联网，默认 False
         """
         try:
+            # 🔒 动态决定是否断网
+            network_setting = not allow_network  # 如果 allow_network=True，则 network_disabled=False
+
             # 🔒 关键安全配置
             container = self.client.containers.run(
                 image=self.image,
@@ -44,7 +57,7 @@ class DockerSandbox(BaseSandbox):
                 stdout=True,
                 stderr=True,
                 # 🔒 安全隔离配置
-                # network_disabled=True,  # 断网, 禁止访问外部网络
+                network_disabled=True,  # 断网, 禁止访问外部网络
                 privileged=False,        # 禁止特权模式
                 user="app",             # 非 root 用户
                 mem_limit="128m",       # 内存限制
@@ -56,6 +69,9 @@ class DockerSandbox(BaseSandbox):
                 tmpfs={"/tmp": "size=64m"},  # 仅允许 /tmp 可写
             )
             return container.decode("utf-8", errors="ignore")
+            # 在返回前调用
+            # output = container.decode("utf-8", errors="ignore")
+            # return self._clean_output(output)
         except Exception as e:
             return f"Docker Sandbox Error: {e}"
 
@@ -69,7 +85,7 @@ class DockerSandbox(BaseSandbox):
             return "🚨 Command blocked by sandbox for security reasons."
         return self._run_container(command)
 
-    def execute_code(self, code: str, language: str = "python") -> str:
+    def execute_code(self, code: str, language: str = "python", allow_network: bool = False) -> str:
         """
         执行代码（通过写入临时文件再执行）
         """
@@ -95,7 +111,7 @@ class DockerSandbox(BaseSandbox):
                 detach=False,
                 stdout=True,
                 stderr=True,
-                network_disabled=True,
+                network_disabled=not allow_network,
                 user="app",
                 mem_limit="128m",
                 read_only=True,
