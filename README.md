@@ -1,3 +1,8 @@
+```
+我使用python+langchain+langgraph开发了一个类似于openclaw的ai智能体，python版本，现在我遇到了一些困难，想进一步学习openclaw类似的skill操作，比如常用的skill的安装与使用，自定义skill，手动导入skill等，我希望你引导我进行余下的开发。
+但在此之前，你需要了解我的项目架构和代码，我会分别将项目结构和每个文件的代码发给你，你认真研究、学习，理解，之后，引导我进行接下来的开发。
+注意：我的目的是用python复写一个openclaw的python版本。现在，你准备好接受我提供的项目架构了吗？
+```
 # mason
 mason agent ai，石匠铺子，python版本OpenClaw
 

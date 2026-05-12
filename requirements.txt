@@ -2,7 +2,7 @@
 langchain==1.2.0
 langchain-core==1.3.0
 langchain-openai==1.2.0
-langgraph==1.0.10
+langgraph>=1.0.10  # 允许安装最新版本
 
 langgraph-checkpoint-mysql>=2.0.0
 pymysql==1.1.0

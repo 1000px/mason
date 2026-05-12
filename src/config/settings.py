@@ -15,7 +15,7 @@ class Settings:
     DASHSCOPE_BASE_URL: str = os.getenv("DASHSCOPE_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1")
 
     # 🆕 Sandbox Config
-    SANDBOX_TYPE: str = os.getenv("SANDBOX_TYPE", "local")  # "docker" or "local"
+    SANDBOX_TYPE: str = "docker" # 写死，不允许local模式
     SANDBOX_TIMEOUT: int = int(os.getenv("SANDBOX_TIMEOUT", "10"))  # seconds
     # MySQL Config
     HOST: str = os.getenv("HOST", "localhost")
