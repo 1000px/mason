@@ -44,7 +44,7 @@ class DockerSandbox(BaseSandbox):
                 stdout=True,
                 stderr=True,
                 # 🔒 安全隔离配置
-                network_disabled=True,  # 断网
+                # network_disabled=True,  # 断网, 禁止访问外部网络
                 privileged=False,        # 禁止特权模式
                 user="app",             # 非 root 用户
                 mem_limit="128m",       # 内存限制
