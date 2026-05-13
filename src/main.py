@@ -123,9 +123,11 @@ def main():
     
     # 🆕🆕🆕 关键步骤：把主程序的队列"安装"到 reminder 模块里 🆕🆕🆕
     try:
-        from src.skills.builtin.reminder.main import set_task_queue
+        from src.skills.builtin.reminder.main import set_task_queue, SchedulerManager
         set_task_queue(TASK_QUEUE)
         print("✅ Reminder 队列注入成功！")
+
+        SchedulerManager.get_instance().load_and_schedule()
     except Exception as e:
         print(f"❌ 注入队列失败: {e}")
 
@@ -137,6 +139,8 @@ def main():
     try:
         input_thread = threading.Thread(target=input_thread_worker, daemon=True)
         input_thread.start()
+
+        print("You: ", end="", flush=True)
 
         while True:
             msg = TASK_QUEUE.get()
