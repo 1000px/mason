@@ -26,9 +26,26 @@ from src.db.memory import get_memory_store
 from src.llm.provider import get_llm
 
 # --- 🚀 全局队列 (连接 Reminder 子线程和主循环) ---
-# 注意：这个队列必须在顶层定义，确保 Reminder 导入的是同一个对象
 TASK_QUEUE = queue.Queue()
 should_exit = False
+
+# 队列消息类型标记
+MSG_USER_INPUT = "__user_input__"
+MSG_SCHEDULED = "__scheduled__"
+
+
+def input_thread_worker():
+    while not should_exit:
+        try:
+            user_input = input()
+            if should_exit:
+                break
+            TASK_QUEUE.put({"type": MSG_USER_INPUT, "content": user_input})
+        except EOFError:
+            TASK_QUEUE.put({"type": MSG_USER_INPUT, "content": "exit"})
+            break
+        except Exception:
+            break
 # --- 辅助函数 ---
 def extract_memory_from_input(user_input, store):
     """从用户输入中提取记忆（独立函数，不在图中）"""
@@ -73,12 +90,8 @@ def extract_memory_from_input(user_input, store):
         pass
 
 def put_task_into_queue(payload: dict):
-    """
-    这是给 Reminder 注册的回调函数。
-    它只存在于 main.py 的作用域里，操作 main.py 的 TASK_QUEUE。
-    """
     print(f"\n[{datetime.now().strftime('%H:%M:%S')}] 🚀 (Callback) 定时任务入队: {payload.get('description')}", flush=True)
-    TASK_QUEUE.put(payload)
+    TASK_QUEUE.put({"type": MSG_SCHEDULED, "payload": payload})
 
 def process_input(user_input: str, config: dict):
     """
@@ -122,51 +135,40 @@ def main():
     print("-" * 40)
 
     try:
-        while True:  
-            # 🆕 使用标准input()读取用户输入（会阻塞，但可以通过Ctrl+C中断）
-            try:
-                # 🆕 定期检查定时任务队列
-                try:
-                    task_payload = TASK_QUEUE.get_nowait()
-                    
-                    # 构造给大模型的指令
-                    desc = task_payload.get('description', '')
-                    payload_str = json.dumps(task_payload, ensure_ascii=False)
-                    
-                    instruction = f"System: 请执行以下定时任务：{desc}。具体参数：{payload_str}"
-                    
-                    print(f"\n🔔 [Main] 检测到定时任务，唤醒 Mason...", flush=True)
-                    print("Mason: ", end="", flush=True)
+        input_thread = threading.Thread(target=input_thread_worker, daemon=True)
+        input_thread.start()
 
-                    process_input(instruction, config)
-                    TASK_QUEUE.task_done()
-                    continue  # 继续循环检查更多任务
-                    
-                except queue.Empty:
-                    pass
-                
-                # 🆕 没有待处理的任务，读取用户输入
-                print("You: ", end="", flush=True)
-                user_input = input()
-                
+        while True:
+            msg = TASK_QUEUE.get()
+
+            if msg["type"] == MSG_USER_INPUT:
+                user_input = msg["content"]
                 if not user_input:
                     continue
                 if user_input.lower() in ["exit", "quit"]:
                     print("👋 Goodbye!", flush=True)
                     should_exit = True
                     break
-                
-                # 提取记忆
+
                 extract_memory_from_input(user_input, store)
 
                 print("Mason: ", end="", flush=True)
                 process_input(user_input, config)
-                
-            except EOFError:
-                # stdin 被关闭（如管道输入结束时）
-                print("\n👋 Goodbye!", flush=True)
-                should_exit = True
-                break
+
+            elif msg["type"] == MSG_SCHEDULED:
+                task_payload = msg["payload"]
+                desc = task_payload.get("description", "")
+                payload_str = json.dumps(task_payload, ensure_ascii=False)
+
+                instruction = f"System: 请执行以下定时任务：{desc}。具体参数：{payload_str}"
+
+                print(f"\n� [Main] 检测到定时任务，唤醒 Mason...", flush=True)
+                print("Mason: ", end="", flush=True)
+
+                process_input(instruction, config)
+
+            TASK_QUEUE.task_done()
+            print("You: ", end="", flush=True)
                 
     except KeyboardInterrupt:
         print("\n👋 Goodbye!")

@@ -13,7 +13,8 @@ sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 
 # 项目根目录
 ROOT_DIR = Path(__file__).resolve().parent
-SKILLS_DIR = ROOT_DIR / "src" / "skills" / "builtin"
+BUILTIN_SKILLS_DIR = ROOT_DIR / "src" / "skills" / "builtin"
+USER_SKILLS_DIR = ROOT_DIR / "src" / "skills" / "user"
 REQUIREMENTS_FILE = ROOT_DIR / "requirements.txt"
 
 # 定义系统核心引导文件
@@ -122,18 +123,21 @@ def remove_skill_dependencies(skill_name: str):
         print(f"[INFO] Removed dependencies for skill '{skill_name}' from requirements.txt")
 
 def uninstall_skill(skill_name: str):
-    """卸载 Skill"""
     print(f"[INFO] Uninstalling skill: {skill_name}")
-    
-    # 1. 动态检查是否为系统核心 Skill
+
     if is_system_skill(skill_name):
         print(f"[ERROR] Cannot uninstall system skill: {skill_name}")
         print("   This skill is required for Mason's core functionality.")
         sys.exit(1)
-    
-    # 2. 检查 Skill 是否存在
-    skill_dir = SKILLS_DIR / skill_name
-    if not skill_dir.exists():
+
+    skill_dir = None
+    for base_dir in (USER_SKILLS_DIR, BUILTIN_SKILLS_DIR):
+        candidate = base_dir / skill_name
+        if candidate.exists():
+            skill_dir = candidate
+            break
+
+    if skill_dir is None:
         print(f"[ERROR] Skill '{skill_name}' not found.")
         sys.exit(1)
     

@@ -1,58 +1,139 @@
 # src/skills/loader.py
 import os
+import logging
 import importlib
 import inspect
 import yaml
-from typing import Dict, List
+from typing import Dict, List, Optional
+
 from .base import BaseSkill
 
-SKILL_DIR = os.path.join(os.path.dirname(__file__), "builtin")
+logger = logging.getLogger(__name__)
+
+BUILTIN_SKILL_DIR = os.path.join(os.path.dirname(__file__), "builtin")
+USER_SKILL_DIR = os.path.join(os.path.dirname(__file__), "user")
+
 
 class SkillLoader:
     def __init__(self):
-        self.skills: Dict[str, BaseSkill] = {}
-        self.load_all()
+        self._skills: Dict[str, BaseSkill] = {}
+        self._manifests: Dict[str, dict] = {}
+        self._skill_dirs: Dict[str, str] = {}
+        self._load_all()
 
-    def load_all(self):
-        print(f"🔍 Scanning for skills in: {SKILL_DIR}")
-        
-        for root, dirs, files in os.walk(SKILL_DIR):
-            if "skill.yaml" in files:
-                # 🆕 读取 skill.yaml
+    def _get_scan_dirs(self) -> List[str]:
+        dirs = [BUILTIN_SKILL_DIR]
+        if os.path.isdir(USER_SKILL_DIR):
+            dirs.append(USER_SKILL_DIR)
+        return dirs
+
+    def _resolve_module_name(self, main_py: str, base_dir: str) -> Optional[str]:
+        try:
+            relative_path = os.path.relpath(main_py, start=base_dir)
+        except ValueError:
+            return None
+
+        if base_dir == BUILTIN_SKILL_DIR:
+            prefix = "src.skills.builtin"
+        else:
+            prefix = "src.skills.user"
+
+        module_path = relative_path.replace(os.sep, ".")[:-3]
+        return f"{prefix}.{module_path}"
+
+    def _load_all(self):
+        logger.info("Scanning for skills...")
+
+        for base_dir in self._get_scan_dirs():
+            if not os.path.isdir(base_dir):
+                continue
+
+            for root, dirs, files in os.walk(base_dir):
+                if "skill.yaml" not in files:
+                    continue
+
                 yaml_path = os.path.join(root, "skill.yaml")
-                with open(yaml_path, 'r', encoding='utf-8') as f:
-                    manifest = yaml.safe_load(f)
-                
+                try:
+                    with open(yaml_path, "r", encoding="utf-8") as f:
+                        manifest = yaml.safe_load(f)
+                except Exception as e:
+                    logger.warning("Failed to read %s: %s", yaml_path, e)
+                    continue
+
                 skill_name = manifest.get("name")
                 if not skill_name:
                     continue
-                
-                # 查找 main.py
+
+                self._manifests[skill_name] = manifest
+                self._skill_dirs[skill_name] = root
+
                 main_py = os.path.join(root, manifest.get("entry_point", "main.py"))
-                if not os.path.exists(main_py):
-                    print(f"❌ Entry point not found for {skill_name}")
+                if not os.path.isfile(main_py):
+                    logger.warning("Entry point not found for %s", skill_name)
                     continue
-                
-                # 动态导入
-                relative_path = os.path.relpath(main_py, start=SKILL_DIR)
-                module_name = "src.skills.builtin." + relative_path.replace(os.sep, ".")[:-3]
-                
+
+                module_name = self._resolve_module_name(main_py, base_dir)
+                if module_name is None:
+                    logger.warning("Could not resolve module name for %s", skill_name)
+                    continue
+
                 try:
                     module = importlib.import_module(module_name)
-                    for name, obj in inspect.getmembers(module):
-                        if inspect.isclass(obj) and issubclass(obj, BaseSkill) and obj is not BaseSkill:
+                    skill_instance = None
+                    for _name, obj in inspect.getmembers(module):
+                        if (
+                            inspect.isclass(obj)
+                            and issubclass(obj, BaseSkill)
+                            and obj is not BaseSkill
+                        ):
                             skill_instance = obj()
-                            # 🆕 注入权限配置
-                            skill_instance.permissions = manifest.get("permissions", {})
-                            self.skills[skill_name] = skill_instance
-                            print(f"✅ Loaded Skill: {skill_name} (Permissions: {skill_instance.permissions})")
+                            break
+
+                    if skill_instance is None:
+                        logger.warning("No BaseSkill subclass found in %s", skill_name)
+                        continue
+
+                    skill_instance.permissions = manifest.get("permissions", {})
+
+                    if not skill_instance.validate():
+                        logger.warning("Skill %s failed validation", skill_name)
+                        continue
+
+                    skill_instance.setup()
+                    self._skills[skill_name] = skill_instance
+                    logger.info(
+                        "Loaded skill: %s (permissions: %s)",
+                        skill_name,
+                        skill_instance.permissions,
+                    )
                 except Exception as e:
-                    print(f"❌ Failed to load skill {skill_name}: {e}")
+                    logger.error("Failed to load skill %s: %s", skill_name, e)
 
     def get_all_schemas(self) -> List[Dict]:
-        return [skill.get_schema() for skill in self.skills.values()]
+        schemas = []
+        for skill in self._skills.values():
+            schemas.append(skill.get_schema())
+        return schemas
 
-    def get_skill(self, name: str) -> BaseSkill | None:
-        return self.skills.get(name)
+    def get_skill(self, name: str) -> Optional[BaseSkill]:
+        return self._skills.get(name)
+
+    def get_manifest(self, name: str) -> Optional[dict]:
+        return self._manifests.get(name)
+
+    def list_skills(self) -> List[str]:
+        return list(self._skills.keys())
+
+    def reload(self):
+        for skill in self._skills.values():
+            try:
+                skill.teardown()
+            except Exception as e:
+                logger.warning("Teardown failed for %s: %s", skill.name, e)
+        self._skills.clear()
+        self._manifests.clear()
+        self._skill_dirs.clear()
+        self._load_all()
+
 
 skill_loader = SkillLoader()

@@ -48,7 +48,12 @@ def agent_executor_node(state, store):
         tools_to_bind = skill_loader.get_all_schemas()
         
     if tools_to_bind:
-        system_content += "\n\n## 🛠️ Available Tools:\n" + "\n".join([t['function']['name'] for t in tools_to_bind])
+        tool_descriptions = []
+        for t in tools_to_bind:
+            name = t["function"]["name"]
+            desc = t["function"]["description"]
+            tool_descriptions.append(f"- **{name}**: {desc}")
+        system_content += "\n\n## 🛠️ Available Tools:\n" + "\n".join(tool_descriptions)
     
 
     messages = [SystemMessage(content=system_content)] + state["messages"]
