@@ -1,13 +1,24 @@
-# src/skills/skill_template.yaml
+# Mason Skill 模板
+# runtime: python（默认）| javascript | shell
 name: "example_skill"
 display_name: "Example Skill"
 version: "1.0.0"
 author: "Your Name"
 description: "A brief description of what this skill does."
+runtime: python
 entry_point: "main.py"
+
+# Python Skill 不需要 parameters 字段，参数由 main.py 中的 Pydantic args_schema 定义
+# JS/Shell Skill 需要在此定义参数：
+# parameters:
+#   city:
+#     type: string
+#     description: "城市名称"
+#     required: true
+
 requirements: []
 permissions:
-  network: false        # 是否允许访问互联网
-  filesystem: true      # 是否允许读写文件系统（workspace）
-  max_cpu: 0.5          # 最大 CPU 使用率（0.5 = 50%）
-  max_memory: 128       # 最大内存（MB）
+  network: false
+  filesystem: true
+  max_cpu: 0.5
+  max_memory: 128

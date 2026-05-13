@@ -7,11 +7,18 @@ import yaml
 from typing import Dict, List, Optional
 
 from .base import BaseSkill
+from .script_skill import ScriptSkill
 
 logger = logging.getLogger(__name__)
 
 BUILTIN_SKILL_DIR = os.path.join(os.path.dirname(__file__), "builtin")
 USER_SKILL_DIR = os.path.join(os.path.dirname(__file__), "user")
+
+DEFAULT_ENTRY_POINTS = {
+    "python": "main.py",
+    "javascript": "main.js",
+    "shell": "main.sh",
+}
 
 
 class SkillLoader:
@@ -41,6 +48,81 @@ class SkillLoader:
         module_path = relative_path.replace(os.sep, ".")[:-3]
         return f"{prefix}.{module_path}"
 
+    def _load_python_skill(self, manifest: dict, skill_name: str, root: str, base_dir: str):
+        entry_point = manifest.get("entry_point", "main.py")
+        main_py = os.path.join(root, entry_point)
+        if not os.path.isfile(main_py):
+            logger.warning("Entry point not found for %s: %s", skill_name, main_py)
+            return
+
+        module_name = self._resolve_module_name(main_py, base_dir)
+        if module_name is None:
+            logger.warning("Could not resolve module name for %s", skill_name)
+            return
+
+        module = importlib.import_module(module_name)
+        skill_instance = None
+        for _name, obj in inspect.getmembers(module):
+            if (
+                inspect.isclass(obj)
+                and issubclass(obj, BaseSkill)
+                and obj is not BaseSkill
+                and obj is not ScriptSkill
+            ):
+                skill_instance = obj()
+                break
+
+        if skill_instance is None:
+            logger.warning("No BaseSkill subclass found in %s", skill_name)
+            return
+
+        skill_instance.permissions = manifest.get("permissions", {})
+
+        if not skill_instance.validate():
+            logger.warning("Skill %s failed validation", skill_name)
+            return
+
+        skill_instance.setup()
+        self._skills[skill_name] = skill_instance
+        logger.info(
+            "Loaded python skill: %s (permissions: %s)",
+            skill_name,
+            skill_instance.permissions,
+        )
+
+    def _load_script_skill(self, manifest: dict, skill_name: str, root: str, runtime: str):
+        entry_point = manifest.get("entry_point", DEFAULT_ENTRY_POINTS.get(runtime, "main.js"))
+        script_path = os.path.join(root, entry_point)
+        if not os.path.isfile(script_path):
+            logger.warning("Script not found for %s: %s", skill_name, script_path)
+            return
+
+        description = manifest.get("description", "")
+        parameters_schema = manifest.get("parameters", {})
+        permissions = manifest.get("permissions", {})
+
+        skill_instance = ScriptSkill(
+            name=skill_name,
+            description=description,
+            script_path=script_path,
+            runtime=runtime,
+            parameters_schema=parameters_schema,
+            permissions=permissions,
+        )
+
+        if not skill_instance.validate():
+            logger.warning("Script skill %s failed validation", skill_name)
+            return
+
+        skill_instance.setup()
+        self._skills[skill_name] = skill_instance
+        logger.info(
+            "Loaded %s skill: %s (script: %s)",
+            runtime,
+            skill_name,
+            script_path,
+        )
+
     def _load_all(self):
         logger.info("Scanning for skills...")
 
@@ -67,45 +149,15 @@ class SkillLoader:
                 self._manifests[skill_name] = manifest
                 self._skill_dirs[skill_name] = root
 
-                main_py = os.path.join(root, manifest.get("entry_point", "main.py"))
-                if not os.path.isfile(main_py):
-                    logger.warning("Entry point not found for %s", skill_name)
-                    continue
-
-                module_name = self._resolve_module_name(main_py, base_dir)
-                if module_name is None:
-                    logger.warning("Could not resolve module name for %s", skill_name)
-                    continue
+                runtime = manifest.get("runtime", "python")
 
                 try:
-                    module = importlib.import_module(module_name)
-                    skill_instance = None
-                    for _name, obj in inspect.getmembers(module):
-                        if (
-                            inspect.isclass(obj)
-                            and issubclass(obj, BaseSkill)
-                            and obj is not BaseSkill
-                        ):
-                            skill_instance = obj()
-                            break
-
-                    if skill_instance is None:
-                        logger.warning("No BaseSkill subclass found in %s", skill_name)
-                        continue
-
-                    skill_instance.permissions = manifest.get("permissions", {})
-
-                    if not skill_instance.validate():
-                        logger.warning("Skill %s failed validation", skill_name)
-                        continue
-
-                    skill_instance.setup()
-                    self._skills[skill_name] = skill_instance
-                    logger.info(
-                        "Loaded skill: %s (permissions: %s)",
-                        skill_name,
-                        skill_instance.permissions,
-                    )
+                    if runtime == "python":
+                        self._load_python_skill(manifest, skill_name, root, base_dir)
+                    elif runtime in ("javascript", "shell"):
+                        self._load_script_skill(manifest, skill_name, root, runtime)
+                    else:
+                        logger.warning("Unknown runtime '%s' for skill %s", runtime, skill_name)
                 except Exception as e:
                     logger.error("Failed to load skill %s: %s", skill_name, e)
 
