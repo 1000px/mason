@@ -94,6 +94,24 @@ def cancel_task(task_id: str) -> bool:
         conn.close()
 
 
+def cancel_all_tasks() -> int:
+    conn = get_mysql_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "UPDATE scheduled_tasks SET status = 'cancelled' WHERE status = 'pending'"
+            )
+            affected = cursor.rowcount
+        conn.commit()
+        logger.info("Cancelled %d pending tasks", affected)
+        return affected
+    except Exception as e:
+        logger.error("Failed to cancel all tasks: %s", e)
+        return 0
+    finally:
+        conn.close()
+
+
 def load_pending_tasks() -> List[Dict]:
     conn = get_mysql_connection()
     try:

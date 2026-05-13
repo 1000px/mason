@@ -203,7 +203,7 @@ python -m src.main
 ```
 🦖 Mason Agent's AI Studio Working ...
 
-✅ Reminder 队列注入成功！
+✅ [Reminder] 队列注入成功！
 ✅ [Reminder] 任务队列已连接。
 ----------------------------------------
 💡 提示：输入 'exit' 退出。

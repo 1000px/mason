@@ -125,7 +125,7 @@ def main():
     try:
         from src.skills.builtin.reminder.main import set_task_queue, SchedulerManager
         set_task_queue(TASK_QUEUE)
-        print("✅ Reminder 队列注入成功！")
+        print("✅ [Reminder] 队列注入成功！")
 
         SchedulerManager.get_instance().load_and_schedule()
     except Exception as e:
