@@ -35,42 +35,30 @@ def agent_executor_node(state, store):
         long_term_memory = "\n".join([f"{m.key}: {m.value}" for m in memories]) if memories else ""
     except:
         long_term_memory = ""
-    
-    # 加载Skill清单
-    skill_list = "\n".join([
-        f"- {name}: {skill.description.strip()}"
-        for name, skill in skill_loader.skills.items()
-    ])
-    # skill_tools = skill_loader.get_all_tools()
 
     system_content = agent.base_prompt
     if long_term_memory:
         system_content += f"\n\n## 🧠 Long-term Memory:\n{long_term_memory}"
-    # if skill_tools:
-    #     skill_list = "\n".join([f"- {t.name}: {t.description}" for t in skill_tools])
-    #     system_content += f"\n\n## 🛠️ Available Skills:\n{skill_list}"
-    if skill_list:
-        system_content += f"\n\n## 🛠️ Available Skills:\n{skill_list}"
-        system_content += "\n\nWhen a user asks you to do something related to these skills, call the function directly."
+    
+    # 3. 准备工具列表
+    # General 用 Skills, Coder 用 Tools (或者你也可以混合)
+    if agent_name == "coder":
+        tools_to_bind = TOOLS_SCHEMA
+    else:
+        tools_to_bind = skill_loader.get_all_schemas()
+        
+    if tools_to_bind:
+        system_content += "\n\n## 🛠️ Available Tools:\n" + "\n".join([t['function']['name'] for t in tools_to_bind])
+    
 
     messages = [SystemMessage(content=system_content)] + state["messages"]
-
-    # 4. 🆕 绑定 Skills (替代原来的 bind_tools)
-    # 注意：我们需要把 skill 的 execute 方法作为工具函数传给 LLM
-    # skill_functions = [skill.execute for skill in skill_loader.skills.values()]
-    # if skill_tools:
-    #     llm = agent.llm.bind_tools(skill_tools)
-    # else:
-    #     llm = agent.llm
-
-    # 4. 绑定 Skills (使用纯 Schema 列表)
-    skill_schemas = skill_loader.get_all_schemas()
     
-    if skill_schemas:
-        llm = get_llm().bind_tools(skill_schemas)
+    # 4. 绑定工具并执行
+    # 关键点：确保 LLM 知道有哪些工具可用
+    if tools_to_bind:
+        llm = get_llm().bind_tools(tools_to_bind)
     else:
         llm = get_llm()
-    # llm = get_llm().bind_tools(skill_functions)
     res = llm.invoke(messages)
     
     return {"messages": [res]}
@@ -83,35 +71,24 @@ def tool_node(state):
     
     msgs = []
     for tc in last.tool_calls:
-        skill = skill_loader.get_skill(tc["name"])
-        if skill:
-            try:
-                out = skill.execute(**tc["args"])
-            except Exception as e:
-                out = f"Skill Execution Error: {str(e)}"
-        else:
-            out = f"Unknown skill: {tc['name']}"
+        tool_name = tc["name"]
+        tool_args = tc["args"]
+        
+        # 判断是 Skill 还是 Tool
+        skill = skill_loader.get_skill(tool_name)
+        
+        try:
+            if skill:
+                # 执行 Skill
+                out = skill.execute(**tool_args)
+            elif tool_name in TOOLS_REGISTRY:
+                # 执行普通 Tool
+                out = TOOLS_REGISTRY[tool_name](**tool_args)
+            else:
+                out = f"Unknown tool or skill: {tool_name}"
+        except Exception as e:
+            out = f"Execution Error: {str(e)}"
         
         msgs.append(ToolMessage(content=str(out), tool_call_id=tc["id"]))
-    
+
     return {"messages": msgs}
-# def tool_node(state):
-#     last = state["messages"][-1]
-#     if not isinstance(last, AIMessage) or not last.tool_calls:
-#         return {}
-    
-#     msgs = []
-#     for tc in last.tool_calls:
-#         # 🆕 从 Skill Loader 中获取执行器
-#         skill = skill_loader.get_skill(tc["name"])
-#         if skill:
-#             try:
-#                 out = skill.execute(**tc["args"])
-#             except Exception as e:
-#                 out = f"Skill Execution Error: {str(e)}"
-#         else:
-#             out = f"Unknown skill: {tc['name']}"
-        
-#         msgs.append(ToolMessage(content=str(out), tool_call_id=tc["id"]))
-    
-#     return {"messages": msgs}

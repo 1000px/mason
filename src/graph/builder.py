@@ -14,6 +14,11 @@ def after_agent(state):
         return "tools"
     return END
 
+def after_tools(state):
+    """工具执行完后，回到触发工具的那个 Agent"""
+    # 回到当前的 agent (general 或 coder)
+    return state["current_agent"]
+
 def build_graph():
     checkpointer = get_checkpointer()
     store = get_memory_store()
@@ -36,21 +41,11 @@ def build_graph():
         {"general": "general", "coder": "coder"}
     )
     
-    # ✅ 通用 Agent 后的条件边
-    g.add_conditional_edges(
-        "general",
-        after_agent,
-        {"tools": "tools", END: END}
-    )
+   # Agent 后判断
+    g.add_conditional_edges("general", after_agent, {"tools": "tools", END: END})
+    g.add_conditional_edges("coder", after_agent, {"tools": "tools", END: END})
     
-    # ✅ Coder Agent 后的条件边
-    g.add_conditional_edges(
-        "coder",
-        after_agent,
-        {"tools": "tools", END: END}
-    )
-    
-    # ✅ 工具执行完后回到 coder
-    g.add_edge("tools", "coder")
+    # ✅ 修复：工具执行完后，回到原来的 Agent
+    g.add_conditional_edges("tools", after_tools, {"general": "general", "coder": "coder"})
     
     return g.compile(checkpointer=checkpointer, store=store)
