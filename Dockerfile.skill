@@ -1,6 +1,9 @@
 # Dockerfile.skill
 FROM python:3.11-slim
 
+# 0. 设置时区
+ENV TZ=Asia/Shanghai
+
 # 1. 创建非 root 用户（防止提权攻击）
 RUN addgroup --system app && adduser --system --group app
 
@@ -11,7 +14,8 @@ WORKDIR /workspace
 RUN apt-get update && apt-get install -y \
     curl \
     jq \
-    && pip install --no-cache-dir requests \
+    tzdata \
+    && pip install --no-cache-dir requests schedule pytz beautifulsoup4 lxml \
     && rm -rf /var/lib/apt/lists/*
 
 # 4. 切换到非 root 用户

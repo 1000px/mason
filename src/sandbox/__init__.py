@@ -1,3 +1,4 @@
+# src/sandbox/__init__.py
 import logging
 from src.config.settings import settings
 from .local_sandbox import LocalSandbox
@@ -13,14 +14,11 @@ def get_sandbox():
     """
     if settings.SANDBOX_TYPE == "docker":
         try:
-            # 尝试初始化 Docker 沙箱
             sandbox = DockerSandbox()
             logger.info("✅ Docker Sandbox initialized successfully.")
             return sandbox
         except Exception as e:
-            # 关键：捕获所有异常，降级为 Local
             logger.warning(f"⚠️ Docker Sandbox failed: {e}. Falling back to Local Sandbox.")
             return LocalSandbox()
     
-    # 如果不是 docker，直接用 local
     return LocalSandbox()

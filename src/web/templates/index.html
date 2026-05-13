@@ -140,27 +140,28 @@
                     const data = JSON.parse(event.data);
                     
                     if (data.type === "start") {
-                        // 开始新的回复，创建新的消息元素
                         currentAssistantMessageDiv = addMessage("assistant", "");
                     } else if (data.type === "stream") {
-                        // 追加内容到当前消息
                         if (currentAssistantMessageDiv) {
                             currentAssistantMessageDiv.textContent += data.content;
-                            // 滚动到底部
                             const chatBox = document.getElementById("chatBox");
                             chatBox.scrollTop = chatBox.scrollHeight;
                         }
+                    } else if (data.type === "tool_end") {
+                        // 🆕 可以在这里显示一个工具执行的提示，然后清空当前消息框，准备接受最终结果
+                        console.log("Tool finished:", data.content);
+                        // 可选：添加一个分割线
+                        if (currentAssistantMessageDiv) {
+                            currentAssistantMessageDiv.textContent += "\n[工具执行完毕]\n";
+                        }
                     } else if (data.type === "end") {
-                        // 流式结束，重置当前消息框
                         currentAssistantMessageDiv = null;
                     } else if (data.type === "error") {
-                        // 显示错误信息
                         addMessage("error", "错误: " + data.content);
                     }
                 } catch (e) {
                     console.error("解析消息失败:", e);
-                    addMessage("error", "接收消息时发生错误。");
-                }
+                } 
             };
 
             ws.onerror = (error) => {

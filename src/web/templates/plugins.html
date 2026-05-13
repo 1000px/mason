@@ -1,0 +1,181 @@
+<!-- src/web/templates/plugins.html -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>Mason 插件市场</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        .plugin-card {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            background: white;
+        }
+        .plugin-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .plugin-name {
+            font-size: 1.5em;
+            font-weight: bold;
+        }
+        .plugin-version {
+            color: #666;
+            font-size: 0.9em;
+        }
+        .plugin-description {
+            margin: 10px 0;
+            color: #333;
+        }
+        .plugin-permissions {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+        .permission-tag {
+            display: inline-block;
+            background: #e9ecef;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            margin-right: 5px;
+            margin-bottom: 5px;
+        }
+        .btn-install {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .btn-uninstall {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .install-form {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🦖 Mason 插件市场</h1>
+            <p>管理你的 AI 技能</p>
+        </header>
+
+        <div id="pluginList">
+            <!-- 插件列表将在这里动态加载 -->
+            <p>加载中...</p>
+        </div>
+
+        <div class="install-form">
+            <h3>安装新插件</h3>
+            <input type="text" id="repoUrl" placeholder="输入 GitHub 仓库地址 (例如: https://github.com/user/weather-skill)" style="width: 70%; padding: 10px;">
+            <button onclick="installPlugin()" style="padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 4px;">安装</button>
+        </div>
+    </div>
+
+    <script>
+        // 加载插件列表
+        async function loadPlugins() {
+            const response = await fetch('/api/plugins');
+            const data = await response.json();
+            const list = document.getElementById('pluginList');
+            list.innerHTML = '';
+
+            if (data.plugins.length === 0) {
+                list.innerHTML = '<p>暂无已安装的插件。</p>';
+                return;
+            }
+
+            data.plugins.forEach(plugin => {
+                const card = document.createElement('div');
+                card.className = 'plugin-card';
+                
+                let permissionsHtml = '';
+                if (plugin.permissions) {
+                    for (const [key, value] of Object.entries(plugin.permissions)) {
+                        permissionsHtml += `<span class="permission-tag">${key}: ${value}</span>`;
+                    }
+                }
+
+                card.innerHTML = `
+                    <div class="plugin-header">
+                        <div>
+                            <span class="plugin-name">${plugin.display_name || plugin.name}</span>
+                            <span class="plugin-version">v${plugin.version}</span>
+                        </div>
+                        <button class="btn-uninstall" onclick="uninstallPlugin('${plugin.name}')">卸载</button>
+                    </div>
+                    <div class="plugin-description">${plugin.description}</div>
+                    <div class="plugin-permissions">
+                        <strong>权限:</strong><br>
+                        ${permissionsHtml}
+                    </div>
+                `;
+                list.appendChild(card);
+            });
+        }
+
+        // 安装插件
+        async function installPlugin() {
+            const repoUrl = document.getElementById('repoUrl').value;
+            if (!repoUrl) {
+                alert('请输入仓库地址');
+                return;
+            }
+
+            const response = await fetch('/api/plugins/install', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ repo_url: repoUrl })
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                alert('安装成功！请重启 Mason 以生效。');
+                loadPlugins();
+            } else {
+                alert('安装失败: ' + data.error);
+            }
+        }
+
+        // 卸载插件
+        async function uninstallPlugin(skillName) {
+            if (!confirm(`确定要卸载 ${skillName} 吗？`)) {
+                return;
+            }
+
+            const response = await fetch('/api/plugins/uninstall', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ skill_name: skillName })
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                alert('卸载成功！请重启 Mason 以生效。');
+                loadPlugins();
+            } else {
+                alert('卸载失败: ' + data.error);
+            }
+        }
+
+        // 页面加载时执行
+        loadPlugins();
+    </script>
+</body>
+</html>

@@ -21,5 +21,12 @@ def get_llm(model_name: str | None = None):
             base_url=settings.DASHSCOPE_BASE_URL,
             temperature=0.7,
         )
+    elif provider == "nvidia":
+        return ChatOpenAI(
+            model=model_name or "deepseek-ai/deepseek-v4-pro",
+            api_key=settings.NVIDIA_API_KEY,
+            base_url=settings.NVIDIA_BASE_URL,
+            temperature=0.7,
+        )
     else:
         raise ValueError(f"Unsupported provider: {provider}")
