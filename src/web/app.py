@@ -1,4 +1,12 @@
 # src/web/app.py
+import logging
+
+# 关闭所有第三方库的 INFO / DEBUG 日志，保持输出整洁
+logging.basicConfig(level=logging.WARNING)
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("langchain").setLevel(logging.WARNING)
+logging.getLogger("langgraph").setLevel(logging.WARNING)
+
 import uuid
 import json
 import re

@@ -1,0 +1,11 @@
+name: story_query
+version: "1.0.0"
+author: Mason Team
+description: "查询数据库中可用的故事列表。当用户说'当前还有多少故事可用'、'查看故事列表'、'有哪些故事'时激活。"
+entry_point: "main.py"
+requirements: []
+permissions:
+  network: false
+  filesystem: false
+  max_cpu: 0.2
+  max_memory: 64

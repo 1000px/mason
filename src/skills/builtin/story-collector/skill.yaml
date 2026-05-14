@@ -1,0 +1,11 @@
+name: story_collector
+version: "1.0.0"
+author: Mason Team
+description: "打开故事收集窗口，录入故事的标题、作者、标签和正文，保存到数据库。当用户说'故事收集'、'录入故事'、'收集故事'时激活。"
+entry_point: "main.py"
+requirements: []
+permissions:
+  network: false
+  filesystem: false
+  max_cpu: 0.2
+  max_memory: 64
