@@ -1,0 +1,13 @@
+# src/skills/builtin/reminder/skill.yaml
+name: "reminder"
+display_name: "定时任务提醒"
+version: "1.0.0"
+author: "Mason Team"
+description: "设置定时提醒。接收结构化参数并执行定时任务。"
+entry_point: "main.py"
+requirements: []  # 不需要额外依赖，schedule 已在主 requirements.txt 中
+permissions:
+  network: false      # 不需要联网
+  filesystem: false   # 不需要访问文件
+  max_cpu: 0.2        # 占用少量 CPU
+  max_memory: 64      # 占用少量内存

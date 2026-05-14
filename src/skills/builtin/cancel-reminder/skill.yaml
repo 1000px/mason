@@ -1,0 +1,9 @@
+name: cancel_reminder
+version: "1.0.0"
+author: Mason Team
+entry_point: main.py
+permissions:
+  network: false
+  filesystem: false
+  max_cpu: 0.1
+  max_memory: 32

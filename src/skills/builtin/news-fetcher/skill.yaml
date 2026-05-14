@@ -1,0 +1,15 @@
+# src/skills/builtin/news_fetcher/skill.yaml
+name: "news-fetcher"
+display_name: "新闻抓取器"
+version: "1.0.0"
+author: "Mason Team"
+description: "从互联网抓取最新新闻，并整理成摘要。"
+entry_point: "main.py"
+requirements:
+  - requests
+  - beautifulsoup4  # 用于解析 HTML
+permissions:
+  network: true       # 🔥 必须开启网络
+  filesystem: false   # 不需要访问宿主机文件
+  max_cpu: 0.5        # 抓取可能需要一点 CPU
+  max_memory: 128     # 内存给多一点

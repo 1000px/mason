@@ -1,0 +1,12 @@
+name: text_to_image
+version: "1.0.0"
+author: Mason Team
+description: "文生图：根据文字描述生成图片。当用户说'画一幅'、'生成图片'、'创作图像'时激活。"
+entry_point: "main.py"
+requirements:
+  - requests
+permissions:
+  network: true
+  filesystem: true
+  max_cpu: 0.3
+  max_memory: 128

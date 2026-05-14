@@ -29,4 +29,9 @@ class Settings:
     DATABASE: str = os.getenv("DATABASE", "mason")
     CHARSET: str = os.getenv("CHARSET", "utf8mb4")
 
+    # WeChat Work (企业微信) Config
+    WECOM_CORP_ID: str = os.getenv("WECOM_CORP_ID", "")
+    WECOM_CORP_SECRET: str = os.getenv("WECOM_CORP_SECRET", "")
+    WECOM_AGENT_ID: int = int(os.getenv("WECOM_AGENT_ID", "0"))
+
 settings = Settings()

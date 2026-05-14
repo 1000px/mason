@@ -1,0 +1,15 @@
+name: string_reverse
+version: "1.0.0"
+author: Mason Team
+description: "反转字符串。当用户说'反转'、'倒序'、'反过来'时激活。"
+runtime: javascript
+parameters:
+  text:
+    type: string
+    description: "要反转的文本内容"
+    required: true
+permissions:
+  network: false
+  filesystem: false
+  max_cpu: 0.1
+  max_memory: 32

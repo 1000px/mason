@@ -1,0 +1,13 @@
+# src/skills/builtin/email_sender/skill.yaml
+name: "email-sender"
+display_name: "邮件发送器"
+version: "1.0.0"
+author: "Mason Team"
+description: "发送电子邮件。"
+entry_point: "main.py"
+requirements: []
+permissions:
+  network: true       # 🔥 必须联网连 SMTP 服务器
+  filesystem: true    # 🔥 需要读取配置文件（存放密码）
+  max_cpu: 0.3
+  max_memory: 64

@@ -1,0 +1,12 @@
+name: image_to_image
+version: "1.0.0"
+author: Mason Team
+description: "图生图：基于输入图片修改/重绘生成新图片。当用户说'修改这张图'、'重绘'、'改风格'时激活。"
+entry_point: "main.py"
+requirements:
+  - requests
+permissions:
+  network: true
+  filesystem: true
+  max_cpu: 0.3
+  max_memory: 128

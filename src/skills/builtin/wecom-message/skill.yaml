@@ -1,0 +1,12 @@
+name: wecom_message
+version: "1.0.0"
+author: Mason Team
+description: "通过企业微信自建应用发送私信消息给指定用户。当用户说'发微信'、'企业微信通知'、'发送消息给'时激活。"
+entry_point: "main.py"
+requirements:
+  - requests
+permissions:
+  network: true
+  filesystem: false
+  max_cpu: 0.2
+  max_memory: 64
