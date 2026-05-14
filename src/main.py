@@ -164,7 +164,11 @@ def main():
                 desc = task_payload.get("description", "")
                 payload_str = json.dumps(task_payload, ensure_ascii=False)
 
-                instruction = f"System: 请执行以下定时任务：{desc}。具体参数：{payload_str}"
+                instruction = (
+                    f"[定时任务触发] 你之前设定的定时任务现在到时间了，请立即执行，不要询问用户：\n"
+                    f"任务内容：{desc}\n"
+                    f"任务参数：{payload_str}"
+                )
 
                 print(f"\n� [Main] 检测到定时任务，唤醒 Mason...", flush=True)
                 print("Mason: ", end="", flush=True)

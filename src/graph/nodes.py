@@ -17,8 +17,13 @@ def router_node(state, store):
     
     last_msg = messages[-1].content.lower()
     code_keywords = ["代码", "编程", "写代码", "debug", "函数", "算法", "python", "shell", "命令"]
+    image_keywords = ["生成图片", "画一张", "画一幅", "文生图", "图生图", "生成图像", "创作一幅",
+                      "画个", "画一个", "生成一张", "generate image", "create image",
+                      "修改图片", "重绘", "改图", "p图", "修图", "风格迁移"]
     
-    if any(keyword in last_msg for keyword in code_keywords):
+    if any(keyword in last_msg for keyword in image_keywords):
+        return {"current_agent": "gen_image"}
+    elif any(keyword in last_msg for keyword in code_keywords):
         return {"current_agent": "coder"}
     else:
         return {"current_agent": "general"}

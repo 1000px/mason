@@ -9,5 +9,5 @@ class MasonState(TypedDict):
     """
     messages: Annotated[list[AnyMessage], add_messages]
     # 记录当前活跃的Agent
-    current_agent: Literal["router", "general", "coder"]
+    current_agent: Literal["router", "general", "coder", "gen_image"]
 
