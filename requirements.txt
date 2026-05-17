@@ -27,3 +27,8 @@ jinja2==3.1.3
 pyyaml==6.0.3
 schedule==1.2.0
 dateparser==1.4.0
+
+# Audio transcription
+faster-whisper>=1.0.0
+mutagen>=1.47.0
+gradio_client>=2.0.0

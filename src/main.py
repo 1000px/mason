@@ -105,7 +105,9 @@ def process_input(user_input: str, config: dict):
             if hasattr(chunk, 'content') and chunk.content:
                 print(chunk.content, end="", flush=True)
         print() # 流式结束后换行
-    except Exception as e:
+    except BaseException as e:
+        if isinstance(e, KeyboardInterrupt):
+            raise
         print(f"\n❌ Error during processing: {e}", flush=True)
 
 # --- 初始化 Graph ---

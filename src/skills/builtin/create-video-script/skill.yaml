@@ -1,0 +1,11 @@
+name: create_video_script
+version: "1.0.0"
+author: Mason Team
+description: "生成视频脚本：让大模型扮演民间传统说书先生，创作民间故事并输出为 video-script-*.json 格式。当用户说'生成视频脚本'、'创作民间故事'、'写个故事脚本'、'来段评书'时激活。"
+entry_point: "main.py"
+requirements: []
+permissions:
+  network: false
+  filesystem: true
+  max_cpu: 0.1
+  max_memory: 64

@@ -1,0 +1,11 @@
+name: create_draft
+version: "1.0.0"
+author: Mason Team
+description: "根据 video-script-*.json 脚本文件自动生成剪映专业版视频草稿。当用户说'生成草稿'、'创建剪映草稿'、'生成视频草稿'时激活。"
+entry_point: "main.py"
+requirements: []
+permissions:
+  network: false
+  filesystem: true
+  max_cpu: 0.3
+  max_memory: 512

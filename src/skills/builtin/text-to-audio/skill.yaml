@@ -1,0 +1,13 @@
+name: text_to_audio
+version: "2.0.0"
+author: Mason Team
+description: "根据脚本JSON批量将文本转为语音，调用本地 IndexTTS 服务进行音色克隆。当用户说'根据脚本批量转语音'、'批量生成语音'、'脚本转音频'时激活。"
+entry_point: "main.py"
+requirements:
+  - mutagen
+  - gradio_client
+permissions:
+  network: true
+  filesystem: true
+  max_cpu: 0.5
+  max_memory: 512

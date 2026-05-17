@@ -1,0 +1,13 @@
+name: audio_to_srt
+version: "1.0.0"
+author: Mason Team
+description: "将 audios 目录中的音频文件（mp3/wav/flac/m4a/ogg）转录为 SRT 字幕文件。当用户说'生成字幕'、'音频转字幕'、'语音转文字'、'给音频加字幕'时激活。"
+entry_point: "main.py"
+requirements:
+  - faster-whisper
+  - opencc-python-reimplemented
+permissions:
+  network: false
+  filesystem: true
+  max_cpu: 0.8
+  max_memory: 2048
