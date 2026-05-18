@@ -32,3 +32,6 @@ dateparser==1.4.0
 faster-whisper>=1.0.0
 mutagen>=1.47.0
 gradio_client>=2.0.0
+
+
+google-genai

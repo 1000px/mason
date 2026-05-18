@@ -1,6 +1,7 @@
 import os
 import json
 import time
+import uuid
 import random
 from src.skills.base import BaseSkill
 
@@ -676,8 +677,12 @@ class CreateVideoScriptSkill(BaseSkill):
                 "captions": scene["captions"],
             })
 
+        project_id = uuid.uuid4().hex
+
         data = {
             "meta": {
+                "title": title,
+                "project_id": project_id,
                 "roles": roles,
             },
             "script": script,

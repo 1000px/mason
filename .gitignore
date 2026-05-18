@@ -6,3 +6,4 @@ debug.log
 /pyJianYingDraft/
 /video-script.json
 /src/third_party/
+/test_*.py

@@ -3,6 +3,7 @@ import json
 import glob
 import uuid
 import time
+import shutil
 import threading
 import subprocess
 import datetime
@@ -287,11 +288,21 @@ class CreateDraftSkill(BaseSkill):
         draft_dir = os.path.join(jianying_draft_dir, draft_name)
         os.makedirs(draft_dir, exist_ok=True)
 
+        self._write_status(status_path, "running", 0, 1, "正在拷贝图片素材...")
+
+        for scene in script_data.get("script", []):
+            image_name = scene.get("image_name", "")
+            if not image_name:
+                continue
+            src = os.path.join(project_resources_dir, image_name)
+            if os.path.isfile(src):
+                shutil.copy2(src, os.path.join(draft_dir, image_name))
+
         self._write_status(status_path, "running", 0, 1, "正在构建草稿内容...")
 
         try:
             draft_content = self._build_draft_content(
-                script_data, project_id, project_audios_dir, project_resources_dir, subtitle_style
+                script_data, project_id, project_audios_dir, draft_dir, subtitle_style
             )
             draft_meta = self._build_draft_meta(script_data, project_id, draft_dir, project_audios_dir)
         except Exception as e:
@@ -336,21 +347,22 @@ class CreateDraftSkill(BaseSkill):
         self._notify_user(1, 1)
 
     def _build_draft_content(self, script_data: dict, project_id: str,
-                              project_audios_dir: str, project_resources_dir: str,
+                              project_audios_dir: str, draft_dir: str,
                               subtitle_style: int = 0):
         from pyJianYingDraft.script_file import ScriptFile
         from pyJianYingDraft.track import TrackType
         from pyJianYingDraft.text_segment import TextSegment, TextStyle, TextBorder, TextShadow
         from pyJianYingDraft.segment import ClipSettings
         from pyJianYingDraft.audio_segment import AudioSegment
-        from pyJianYingDraft.local_materials import AudioMaterial
+        from pyJianYingDraft.local_materials import AudioMaterial, VideoMaterial
         from pyJianYingDraft.time_util import Timerange
         from pyJianYingDraft.metadata import TextIntro, TextOutro, TextLoopAnim
-        from pyJianYingDraft.video_segment import Transition
+        from pyJianYingDraft.video_segment import VideoSegment, Transition
         from pyJianYingDraft.metadata.transition_meta import TransitionType
 
         script = ScriptFile(width=1920, height=1080, fps=30, maintrack_adsorb=True)
 
+        script.add_track(TrackType.video, "main_video")
         script.add_track(TrackType.audio, "main_audio")
         script.add_track(TrackType.text, "subtitles")
 
@@ -369,6 +381,7 @@ class CreateDraftSkill(BaseSkill):
 
         for scene_idx, scene in enumerate(script_scenes):
             captions = scene.get("captions", [])
+            scene_start_us = current_time_us
 
             for cap_idx, caption in enumerate(captions):
                 audio_file = caption.get("audio", "")
@@ -420,6 +433,20 @@ class CreateDraftSkill(BaseSkill):
                         )
 
                 current_time_us += audio_duration_us
+
+            scene_duration_us = current_time_us - scene_start_us
+
+            image_name = scene.get("image_name", "")
+            if image_name:
+                image_path = os.path.join(draft_dir, image_name)
+                if os.path.isfile(image_path):
+                    try:
+                        image_material = VideoMaterial(image_path)
+                        image_timerange = Timerange(scene_start_us, scene_duration_us)
+                        image_segment = VideoSegment(image_material, image_timerange)
+                        script.add_segment(image_segment, "main_video")
+                    except Exception as e:
+                        logger.warning("添加图片素材失败 (%s): %s", image_name, e)
 
             if scene_idx < len(script_scenes) - 1:
                 transition_duration_us = int(0.5 * SEC)
@@ -543,6 +570,33 @@ class CreateDraftSkill(BaseSkill):
                 })
 
                 total_duration_us += audio_duration_us
+
+            scene_duration_us = sum(
+                int(self._parse_audio_length(c.get("audio_length", "0")) * SEC)
+                for c in scene.get("captions", [])
+            )
+
+            image_name = scene.get("image_name", "")
+            if image_name:
+                image_path = os.path.join(draft_dir, image_name)
+                if os.path.isfile(image_path):
+                    audio_materials_list.append({
+                        "create_time": now,
+                        "duration": scene_duration_us,
+                        "extra_info": image_name,
+                        "file_Path": image_path,
+                        "height": 0,
+                        "id": uuid.uuid4().hex,
+                        "import_time": now,
+                        "import_time_ms": now_ms,
+                        "item_source": 1,
+                        "md5": "",
+                        "metetype": "photo",
+                        "roughcut_time_range": {"duration": -1, "start": -1},
+                        "sub_time_range": {"duration": -1, "start": -1},
+                        "type": 0,
+                        "width": 0,
+                    })
 
         meta["tm_duration"] = total_duration_us
 

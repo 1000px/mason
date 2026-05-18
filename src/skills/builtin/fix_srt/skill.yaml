@@ -1,0 +1,11 @@
+name: fix_srt
+version: "1.0.0"
+author: Mason Team
+description: "修正 SRT 字幕文件中的错别字。基于 video-script-*.json 中的正确文本，校正 Whisper 转录产生的错别字，保留原有时间戳。当用户说'修正字幕'、'改错别字'、'纠正字幕'、'修复字幕'时激活。"
+entry_point: "main.py"
+requirements: []
+permissions:
+  network: false
+  filesystem: true
+  max_cpu: 0.3
+  max_memory: 256

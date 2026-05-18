@@ -37,6 +37,10 @@ class AudioToSrtArgs(BaseModel):
         default="",
         description="项目 ID，用于定位 workspace/{project_id}/audios/ 目录。留空则使用旧版 workspace/audios/ 目录。",
     )
+    max_chars: int = Field(
+        default=20,
+        description="每条字幕的最大字数，超出则按词级时间戳拆分。设为 0 表示不限制。默认 20。",
+    )
 
 
 class AudioToSrtSkill(BaseSkill):
@@ -51,7 +55,7 @@ class AudioToSrtSkill(BaseSkill):
         "max_memory": 2048,
     }
 
-    def execute(self, audio_file: str = "", language: str = "zh", project_id: str = "") -> str:
+    def execute(self, audio_file: str = "", language: str = "zh", project_id: str = "", max_chars: int = 20) -> str:
         running_status = self._get_running_status()
         if running_status:
             return running_status
@@ -95,7 +99,7 @@ class AudioToSrtSkill(BaseSkill):
 
         thread = threading.Thread(
             target=self._run_background,
-            args=(audio_paths, language, status_path, timestamp, audios_dir),
+            args=(audio_paths, language, status_path, timestamp, audios_dir, max_chars),
             daemon=True,
         )
         thread.start()
@@ -105,7 +109,7 @@ class AudioToSrtSkill(BaseSkill):
             f"随时问我\"字幕生成进度\"查看状态。"
         )
 
-    def _run_background(self, audio_paths, language, status_path, timestamp, audios_dir):
+    def _run_background(self, audio_paths, language, status_path, timestamp, audios_dir, max_chars):
         try:
             from faster_whisper import WhisperModel
         except ImportError:
@@ -135,7 +139,7 @@ class AudioToSrtSkill(BaseSkill):
             logger.info("[%d/%d] Transcribing: %s", idx + 1, total, audio_name)
 
             try:
-                segments, info = model.transcribe(audio_path, beam_size=5, language=language)
+                segments, info = model.transcribe(audio_path, beam_size=5, language=language, word_timestamps=True)
             except Exception as e:
                 results.append(f"❌ {audio_name}: 转录失败 - {str(e)}")
                 self._write_status(status_path, "running", idx + 1, total,
@@ -148,14 +152,10 @@ class AudioToSrtSkill(BaseSkill):
             try:
                 with open(srt_path, "w", encoding="utf-8") as f:
                     seg_count = 0
-                    for i, segment in enumerate(segments, start=1):
-                        start_time = self._format_timestamp(segment.start)
-                        end_time = self._format_timestamp(segment.end)
-                        text = segment.text.strip()
-                        if _opencc is not None:
-                            text = _opencc.convert(text)
-                        f.write(f"{i}\n{start_time} --> {end_time}\n{text}\n\n")
-                        seg_count = i
+                    for segment in segments:
+                        for start, end, text in self._split_segment(segment, max_chars):
+                            seg_count += 1
+                            f.write(f"{seg_count}\n{self._format_timestamp(start)} --> {self._format_timestamp(end)}\n{text}\n\n")
             except IOError as e:
                 results.append(f"❌ {audio_name}: 写入字幕文件失败 - {str(e)}")
                 self._write_status(status_path, "running", idx + 1, total,
@@ -172,6 +172,39 @@ class AudioToSrtSkill(BaseSkill):
         summary = f"📝 字幕生成完成（{total} 个文件）：\n\n" + "\n".join(results)
         self._write_status(status_path, "done", total, total, summary)
         self._notify_user(total, total)
+
+    @staticmethod
+    def _split_segment(segment, max_chars):
+        text = segment.text.strip()
+        if _opencc is not None:
+            text = _opencc.convert(text)
+
+        if max_chars <= 0 or not segment.words or len(text) <= max_chars:
+            yield segment.start, segment.end, text
+            return
+
+        words = segment.words
+        batch = []
+        char_count = 0
+
+        for word in words:
+            batch.append(word)
+            char_count += len(word.word)
+            if char_count >= max_chars:
+                sub_text = ''.join(w.word for w in batch).strip()
+                if _opencc is not None:
+                    sub_text = _opencc.convert(sub_text)
+                if sub_text:
+                    yield batch[0].start, batch[-1].end, sub_text
+                batch = []
+                char_count = 0
+
+        if batch:
+            sub_text = ''.join(w.word for w in batch).strip()
+            if _opencc is not None:
+                sub_text = _opencc.convert(sub_text)
+            if sub_text:
+                yield batch[0].start, batch[-1].end, sub_text
 
     @staticmethod
     def _detect_project_id() -> str:
